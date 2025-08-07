@@ -127,7 +127,7 @@ INTENTS:
 - **greet**: User is saying hello or has just logged in.
 - **negative_response**: User is saying no.
 - **multi_action**: The user's message contains more than one of the above intents.
-- **other**: The intent is unclear.
+- **other**: The intent is unclear or not very accurate.
 
 INSTRUCTIONS:
 - **CRITICAL: Base your answers *exclusively* on the CONTEXT provided.**
