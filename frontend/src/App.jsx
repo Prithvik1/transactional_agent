@@ -109,9 +109,6 @@ const App = () => {
 
     const [theme, setTheme] = useState('dark');
     const [isCartOpen, setIsCartOpen] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const sheetRef = useRef(null);
-    const dragStartY = useRef(0);
 
     useEffect(() => {
         document.body.className = theme === 'light' ? 'light-theme' : '';
@@ -123,19 +120,19 @@ const App = () => {
 
     useEffect(scrollToBottom, [messages]);
     
-    const sendMessage = async (messageText, currentUserId) => {
+    const sendMessage = async (messageText, currentUserId, currentOrderState) => {
         if (!messageText.trim()) return;
         const userMessage = { text: messageText, sender: 'user' };
         
         setMessages(prevMessages => [...prevMessages, userMessage]);
 
         try {
-            const response = await fetch('http://localhost:3001/api/chat', {
+            const response = await fetch('https://transactional-agent.onrender.com/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: messageText, userId: currentUserId }),
+                body: JSON.stringify({ message: messageText, userId: currentUserId, orderState: currentOrderState }),
             });
             const data = await response.json();
             const botMessage = { text: data.reply, sender: 'bot' };
@@ -155,12 +152,7 @@ const App = () => {
             return;
         }
         try {
-            const response = await fetch('http://localhost:3001/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId }),
-            });
-
+            const response = await fetch(`https://transactional-agent.onrender.com/api/user/${userId}`);
             if (response.ok) {
                 const userData = await response.json();
                 setLoginError('');
@@ -168,7 +160,7 @@ const App = () => {
                 const initialOrderState = { customerId: userData.id, purchaseOrderNum: null, shippingAddress: null, lineItems: [], status: 'draft' };
                 setOrderState(initialOrderState);
                 
-                sendMessage("hello", userData.id);
+                sendMessage("hello", userData.id, initialOrderState);
 
             } else {
                 setLoginError('User ID not found. Please try again.');
@@ -187,20 +179,20 @@ const App = () => {
     };
 
     const handleSend = () => {
-        sendMessage(input, userId);
+        sendMessage(input, userId, orderState);
         setInput('');
     };
 
     const handleOptionClick = (optionText) => {
         const messageToSend = `I'll take the ${optionText}`;
-        sendMessage(messageToSend, userId);
+        sendMessage(messageToSend, userId, orderState);
     };
 
     const handleConfirmationClick = (choice) => {
         if (choice === 'confirm') {
-            sendMessage("yes, finalize the order", userId);
+            sendMessage("yes, finalize the order", userId, orderState);
         } else {
-            sendMessage("cancel the order", userId);
+            sendMessage("cancel the order", userId, orderState);
         }
     };
 
@@ -248,34 +240,8 @@ const App = () => {
         setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
     };
 
-    const onDragStart = (e) => {
-        setIsDragging(true);
-        dragStartY.current = e.touches ? e.touches[0].clientY : e.clientY;
-        sheetRef.current.classList.remove('snapping');
-    };
-
-    const onDragMove = (e) => {
-        if (!isDragging) return;
-        const currentY = e.touches ? e.touches[0].clientY : e.clientY;
-        const deltaY = currentY - dragStartY.current;
-        const newHeight = isCartOpen ? window.innerHeight * 0.9 - deltaY : 80 - deltaY;
-        
-        const clampedHeight = Math.max(80, Math.min(window.innerHeight * 0.9, newHeight));
-        sheetRef.current.style.height = `${clampedHeight}px`;
-    };
-
-    const onDragEnd = () => {
-        setIsDragging(false);
-        sheetRef.current.classList.add('snapping');
-        const currentHeight = sheetRef.current.clientHeight;
-        
-        if (currentHeight > window.innerHeight * 0.5) {
-            setIsCartOpen(true);
-            sheetRef.current.style.height = '90vh';
-        } else {
-            setIsCartOpen(false);
-            sheetRef.current.style.height = '80px';
-        }
+    const toggleCart = () => {
+        setIsCartOpen(prevState => !prevState);
     };
 
 
@@ -381,20 +347,12 @@ const App = () => {
 
             {/* Mobile Bottom Sheet */}
             <div className="mobile-cart-container">
-                <div className={`cart-backdrop ${isCartOpen ? 'open' : ''}`} onClick={() => setIsCartOpen(false)}></div>
-                <div 
-                    ref={sheetRef}
-                    className={`cart-bottom-sheet ${isCartOpen ? 'open' : ''} ${isDragging ? '' : 'snapping'}`}
-                >
-                    <div 
-                        className="cart-handle" 
-                        onTouchStart={onDragStart}
-                        onTouchMove={onDragMove}
-                        onTouchEnd={onDragEnd}
-                    ></div>
-                    <div className="cart-peek-preview" onClick={() => setIsCartOpen(true)}>
-                        <span>{isCartOpen ? '' : `View Order (${totalItems} items)`}</span>
-                        <span>{isCartOpen ? '' : '↑'}</span>
+                <div className={`cart-backdrop ${isCartOpen ? 'open' : ''}`} onClick={toggleCart}></div>
+                <div className={`cart-bottom-sheet ${isCartOpen ? 'open' : ''}`}>
+                    <div className="cart-handle" onClick={toggleCart}></div>
+                    <div className="cart-peek-preview" onClick={toggleCart}>
+                        <span>{isCartOpen ? 'Current Order' : `View Order (${totalItems} items)`}</span>
+                        <span>{isCartOpen ? '↓' : '↑'}</span>
                     </div>
                     {isCartOpen && <ShoppingCart orderState={orderState} />}
                 </div>
