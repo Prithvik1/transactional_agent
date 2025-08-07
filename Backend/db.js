@@ -1,17 +1,17 @@
-const mysql = require('mysql2/promise');
+// This file is now configured to use the 'pg' library for PostgreSQL
+const { Pool } = require('pg');
 
-// Create a connection pool using the environment variables
-const dbPool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+// This is the only configuration needed.
+// The pool will automatically use the DATABASE_URL from your Render environment.
+const dbPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    // This is required for connecting to Render's PostgreSQL databases
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
-console.log('Database connection pool created.');
+console.log('PostgreSQL connection pool created.');
 
 // Export the pool to be used in other parts of the application
 module.exports = dbPool;
