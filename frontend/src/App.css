@@ -1,4 +1,4 @@
-/* --- Professional Redesign v6 (Typing Indicator) --- */
+/* --- Professional Redesign v7 (Guaranteed Bottom Sheet Fix) --- */
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
 
@@ -355,7 +355,7 @@ body {
 }
 
 
-/* --- Mobile Bottom Sheet Styling --- */
+/* --- NEW: Mobile Bottom Sheet Styling --- */
 .mobile-cart-container {
     display: none; /* Hidden on desktop */
     position: fixed;
@@ -390,35 +390,29 @@ body {
     background-color: var(--primary-surface);
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -10px 30px rgba(0,0,0,0.3);
-    transition: height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    height: 80px; /* Peeking state */
-    overflow: hidden;
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateY(100%); /* Start hidden */
+    height: 90vh; /* Full height when open */
+    display: flex;
+    flex-direction: column;
+}
+
+.cart-bottom-sheet.peek {
+    transform: translateY(calc(100% - 80px)); /* Peeking state */
 }
 
 .cart-bottom-sheet.open {
-    height: 90vh; /* Open state */
-}
-
-.cart-peek-preview {
-    padding: 0 24px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-}
-
-.cart-peek-preview span {
-    font-weight: 500;
+    transform: translateY(0); /* Open state */
 }
 
 .cart-handle {
     width: 100%;
     padding: 12px;
-    cursor: grab;
+    cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-shrink: 0;
 }
 .cart-handle::before {
     content: '';
@@ -462,27 +456,4 @@ body {
     .inputArea {
         padding: 12px;
     }
-}
-
-/* --- NEW: Typing Indicator --- */
-.typing-indicator {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-}
-.typing-indicator span {
-    height: 8px;
-    width: 8px;
-    background-color: var(--secondary-text);
-    border-radius: 50%;
-    display: inline-block;
-    margin: 0 2px;
-    animation: bounce 1.4s infinite ease-in-out both;
-}
-.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-
-@keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1.0); }
 }
