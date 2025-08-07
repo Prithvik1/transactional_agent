@@ -21,7 +21,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     try {
-        // Get the session for the user. If it doesn't exist (which shouldn't happen after login), create it.
+        // Get the session for the user. If it doesn't exist, create it.
         if (!userSessions[userId]) {
             userSessions[userId] = {
                 orderState: { 
@@ -52,18 +52,13 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// This endpoint now handles both user validation and session creation.
-app.post('/api/login', async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) {
-        return res.status(400).json({ error: 'User ID is required.' });
-    }
-
+// --- THE PERMANENT FIX: Re-added the missing user validation endpoint ---
+app.get('/api/user/:id', async (req, res) => {
     try {
-        const [rows] = await dbPool.execute('SELECT id, name FROM customers WHERE id = ?', [userId]);
+        const [rows] = await dbPool.execute('SELECT id, name FROM customers WHERE id = ?', [req.params.id]);
         if (rows.length > 0) {
-            // --- THE PERMANENT FIX ---
-            // When a user logs in, create a new, fresh session for them, overwriting any old data.
+            // When a user logs in, create a new, fresh session for them.
+            const userId = req.params.id;
             userSessions[userId] = {
                 orderState: { 
                     customerId: parseInt(userId, 10), 
@@ -80,8 +75,8 @@ app.post('/api/login', async (req, res) => {
             res.status(404).json({ error: 'User not found' });
         }
     } catch (error) {
-        console.error('API Error during login:', error);
-        res.status(500).json({ error: 'Could not process login.' });
+        console.error('API Error fetching user:', error);
+        res.status(500).json({ error: 'Could not fetch user.' });
     }
 });
 
