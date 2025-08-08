@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
-// This code is already correct. It will read the URL from the .env file.
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// Check for browser support for the Web Speech API
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
@@ -119,6 +117,15 @@ const App = () => {
     useEffect(() => {
         document.body.className = theme === 'light' ? 'light-theme' : '';
     }, [theme]);
+    
+    // FIX: This new useEffect hook manages the body scroll lock
+    useEffect(() => {
+        if (isCartOpen) {
+            document.body.classList.add('no-scroll');
+        } else {
+            document.body.classList.remove('no-scroll');
+        }
+    }, [isCartOpen]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
