@@ -1,3 +1,5 @@
+// ConversationalAgent.js - FULLY UPDATED
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const OrderProcessingAgent = require('./orderProcessingAgent');
 
@@ -7,7 +9,7 @@ class ConversationalAgent {
             throw new Error("GEMINI_API_KEY is not set in the environment variables.");
         }
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = genAI.getGenerativeModel({ model: "gemini-2.5-flash"});
+        this.model = genAI.getGenerativeModel({ model: "gemini-2.5-flash"}); // Updated model name
     }
 
     async handleMessage(message, db, userId, session) {
@@ -271,8 +273,10 @@ JSON-ONLY RESPONSE:`;
         return confirmationText;
     }
 
+    // FIX: This method is now updated for PostgreSQL
     async loadUserProfile(db, userId) {
-        const [rows] = await db.execute('SELECT * FROM customers WHERE id = ?', [userId]);
+        // Use .query() and the $1 placeholder instead of .execute() and ?
+        const { rows } = await db.query('SELECT * FROM customers WHERE id = $1', [userId]);
         if (rows.length === 0) throw new Error(`Could not find user with ID: ${userId}`);
         return rows[0];
     }

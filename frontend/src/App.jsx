@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css'; // This should point to your final CSS file
+import './App.css';
+
+// This code is already correct. It will read the URL from the .env file.
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Check for browser support for the Web Speech API
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -130,7 +133,7 @@ const App = () => {
         setMessages(prevMessages => [...prevMessages, userMessage]);
 
         try {
-            const response = await fetch('https://transactional-agent.onrender.com/api/chat', {
+            const response = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -155,7 +158,7 @@ const App = () => {
             return;
         }
         try {
-            const response = await fetch(`https://transactional-agent.onrender.com/api/user/${userId}`);
+            const response = await fetch(`${API_URL}/api/user/${userId}`);
             if (response.ok) {
                 const userData = await response.json();
                 setLoginError('');
