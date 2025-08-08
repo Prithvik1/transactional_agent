@@ -1,76 +1,104 @@
-require('dotenv').config();
+// server.js - FULLY UPDATED
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dbPool = require('./db');
+const dbPool = require('./db'); // This should be your pg-configured db.js
 const ConversationalAgent = require('./converstationalAgent');
 
 const app = express();
-app.use(cors());
+
+// FIX: Secure CORS configuration. 
+// In your Render backend settings, add an Environment Variable:
+// Key: FRONTEND_URL
+// Value: The URL of your deployed frontend (e.g., https://your-app-name.onrender.com)
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Fallback for local dev
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// This object will store the full session (order state + history) for each user.
-const userSessions = {};
+// REMOVED: The in-memory userSessions object is gone. We now use the database.
 const agent = new ConversationalAgent();
 
 app.post('/api/chat', async (req, res) => {
-    // The frontend sends the userId with each message.
     const { message, userId } = req.body;
     if (!message || !userId) {
         return res.status(400).json({ error: 'Message and userId are required.' });
     }
 
     try {
-        // Get the session for the user. If it doesn't exist, create it.
-        if (!userSessions[userId]) {
-            userSessions[userId] = {
-                orderState: { 
-                    customerId: parseInt(userId, 10), 
-                    purchaseOrderNum: null, 
-                    shippingAddress: null, 
-                    lineItems: [], 
-                    status: 'draft' 
-                },
-                history: []
-            };
-            console.log(`[Server] New session created for User ID: ${userId}`);
+        // Step 1: Fetch the user's session from the database.
+        const sessionResult = await dbPool.query('SELECT session_data FROM user_sessions WHERE user_id = $1', [userId]);
+        
+        let session;
+        if (sessionResult.rows.length > 0) {
+            session = sessionResult.rows[0].session_data;
+            console.log(`[Server] Loaded session from DB for User ID: ${userId}`);
+        } else {
+            // This is a safeguard. The user should always have a session after logging in.
+            return res.status(404).json({ error: 'Session not found. Please log in again.' });
         }
-        const session = userSessions[userId];
 
-        // The agent receives the complete, valid session object.
+        // The agent receives the complete session object from the database.
         const { newOrderState, newHistory, reply } = await agent.handleMessage(message, dbPool, userId, session);
         
-        // Update the server's session state with the new state returned by the agent.
-        session.orderState = newOrderState;
-        session.history = newHistory;
-        
-        res.json({ reply, orderState: session.orderState });
+        // Step 2: Create the updated session object to be saved.
+        const updatedSession = {
+            orderState: newOrderState,
+            history: newHistory
+        };
+
+        // Step 3: Save the updated session back to the database.
+        // This query inserts a new session or updates it if one already exists for the user.
+        await dbPool.query(
+            `INSERT INTO user_sessions (user_id, session_data) 
+             VALUES ($1, $2)
+             ON CONFLICT (user_id) 
+             DO UPDATE SET session_data = EXCLUDED.session_data, updated_at = NOW()`,
+            [userId, updatedSession]
+        );
+
+        res.json({ reply, orderState: updatedSession.orderState });
 
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error in /api/chat:', error);
         res.status(500).json({ error: 'Something went wrong on our end.' });
     }
 });
 
-// --- THE PERMANENT FIX: Re-added the missing user validation endpoint ---
 app.get('/api/user/:id', async (req, res) => {
     try {
-        const [rows] = await dbPool.execute('SELECT id, name FROM customers WHERE id = ?', [req.params.id]);
+        const userId = req.params.id;
+
+        // FIX: Use .query() and $1 placeholder for PostgreSQL.
+        const { rows } = await dbPool.query('SELECT id, name, default_shipping_address, default_po_number FROM customers WHERE id = $1', [userId]);
+
         if (rows.length > 0) {
-            // When a user logs in, create a new, fresh session for them.
-            const userId = req.params.id;
-            userSessions[userId] = {
+            // When a user logs in, create a fresh session FOR THEM in the database.
+            const initialSession = {
                 orderState: { 
                     customerId: parseInt(userId, 10), 
-                    purchaseOrderNum: null, 
-                    shippingAddress: null, 
+                    purchaseOrderNum: rows[0].default_po_number, 
+                    shippingAddress: rows[0].default_shipping_address, 
                     lineItems: [], 
                     status: 'draft' 
                 },
                 history: []
             };
-            console.log(`[Server] Login successful. New session created for User ID: ${userId}`);
-            res.json(rows[0]); // Send user data back to frontend.
+            
+            await dbPool.query(
+                `INSERT INTO user_sessions (user_id, session_data) 
+                 VALUES ($1, $2)
+                 ON CONFLICT (user_id) 
+                 DO UPDATE SET session_data = EXCLUDED.session_data, updated_at = NOW()`,
+                [userId, initialSession]
+            );
+            
+            console.log(`[Server] Login successful. New session created/reset in DB for User ID: ${userId}`);
+            res.json(rows[0]); // Send user data back to the frontend.
         } else {
             res.status(404).json({ error: 'User not found' });
         }
@@ -79,7 +107,6 @@ app.get('/api/user/:id', async (req, res) => {
         res.status(500).json({ error: 'Could not fetch user.' });
     }
 });
-
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
